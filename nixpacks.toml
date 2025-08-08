@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["python3", "python3Packages.pip", "python3Packages.virtualenv"]
+
+[phases.install]
+cmds = [
+    "python3 -m venv /opt/venv",
+    "source /opt/venv/bin/activate && pip install -r requirements.txt"
+]
+
+[start]
+cmd = "source /opt/venv/bin/activate && python app.py" 
