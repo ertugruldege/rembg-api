@@ -1,6 +1,6 @@
 # REMBG API
 
-A high-performance REST API for background removal using REMBG library. Remove backgrounds from images with multiple AI models.
+A high-performance REST API for background removal with multiple providers. Remove backgrounds from images using REMBG or Withoutbg AI models.
 
 ## 🚀 Quick Start
 
@@ -13,6 +13,16 @@ python app.py
 ```
 
 API will be available at `http://localhost:5000`
+
+## ✨ Features
+
+- 🎯 **Multiple Provider Support**: Choose between REMBG and Withoutbg
+- 🤖 **Multiple AI Models**: 5 different AI model options
+- 📦 **Batch Processing**: Process multiple images simultaneously
+- 💾 **Dynamic RAM Optimization**: Automatic adjustment based on system resources
+- 🚀 **High Performance**: Fast processing and optimized memory usage
+- 📊 **Detailed Logging**: Comprehensive logging for every operation
+- 🔄 **Flexible Format Support**: JPG, PNG, WebP, TIFF
 
 ## 📡 API Endpoints
 
@@ -30,8 +40,22 @@ Content-Type: multipart/form-data
 
 Parameters:
 - image: Image file (required)
-- model: AI model (optional, default: u2net)
+- provider: Service provider (optional, default: rembg) - Options: rembg, withoutbg
+- model: AI model (optional, default: u2net) - Only for rembg provider
 - max_size: Max image size (optional, default: 2000px)
+```
+
+**Examples:**
+
+```bash
+# Using REMBG (default)
+curl -X POST -F "image=@photo.jpg" http://localhost:5000/remove-bg
+
+# Using REMBG with specific model
+curl -X POST -F "image=@photo.jpg" -F "model=u2net_human_seg" http://localhost:5000/remove-bg
+
+# Using Withoutbg
+curl -X POST -F "image=@photo.jpg" -F "provider=withoutbg" http://localhost:5000/remove-bg
 ```
 
 ### Batch Processing
@@ -42,13 +66,34 @@ Content-Type: multipart/form-data
 
 Parameters:
 - images: Multiple image files (required)
-- model: AI model (optional, default: u2net)
+- provider: Service provider (optional, default: rembg) - Options: rembg, withoutbg
+- model: AI model (optional, default: u2net) - Only for rembg provider
+```
+
+**Example:**
+
+```bash
+curl -X POST \
+  -F "images=@photo1.jpg" \
+  -F "images=@photo2.jpg" \
+  -F "provider=withoutbg" \
+  http://localhost:5000/batch
 ```
 
 ### Get Models
 
 ```http
-GET /models
+GET /models?provider=rembg
+```
+
+**Examples:**
+
+```bash
+# Get REMBG models
+curl http://localhost:5000/models?provider=rembg
+
+# Get Withoutbg models
+curl http://localhost:5000/models?provider=withoutbg
 ```
 
 ### System Info
@@ -57,7 +102,9 @@ GET /models
 GET /system
 ```
 
-## 🤖 AI Models
+## 🤖 Providers & Models
+
+### REMBG Provider (default)
 
 | Model               | Description                   | Size  | Speed  | Quality   |
 | ------------------- | ----------------------------- | ----- | ------ | --------- |
@@ -65,6 +112,17 @@ GET /system
 | `silueta`           | Compact model (fast)          | 44MB  | Fast   | Good      |
 | `u2net_human_seg`   | Specifically for humans       | 176MB | Medium | Excellent |
 | `isnet-general-use` | Improved model (latest)       | 179MB | Medium | High      |
+
+### Withoutbg Provider
+
+| Model  | Description                      | Speed | Quality |
+| ------ | -------------------------------- | ----- | ------- |
+| `snap` | Open source Snap model (default) | Fast  | High    |
+
+**Provider Features:**
+
+- **REMBG**: Multiple model options, wide range of use cases
+- **Withoutbg**: Fast processing, AI-powered edge detection, local processing
 
 ## ⚙️ Configuration
 
@@ -81,17 +139,6 @@ cp env.example .env
 - `PORT`: Application port (default: 5000)
 - `FLASK_ENV`: Flask environment (development/production)
 
-### Dynamic Limits
-
-API limits are automatically adjusted based on available RAM:
-
-| RAM   | File Size | Batch Limit | Max Pixels |
-| ----- | --------- | ----------- | ---------- |
-| 8GB+  | 50MB      | 20 images   | 8M pixels  |
-| 4-8GB | 30MB      | 15 images   | 6M pixels  |
-| 2-4GB | 20MB      | 10 images   | 4M pixels  |
-| <2GB  | 10MB      | 5 images    | 2M pixels  |
-
 ### Supported Formats
 
 - JPG, PNG, WebP, TIFF
@@ -102,11 +149,12 @@ API limits are automatically adjusted based on available RAM:
 
 ```
 rembg-api/
-├── app.py                    # Main application
+├── app.py                       # Main application
 ├── services/
-│   └── rembg_service.py      # REMBG service logic
+│   ├── rembg_service.py         # REMBG service logic
+│   └── withoutbg_service.py     # Withoutbg service logic
 ├── routes/
-│   └── api.py               # API endpoints
+│   └── api.py                   # API endpoints
 ├── requirements.txt
 └── README.md
 ```
