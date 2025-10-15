@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 # Create blueprint
 api_bp = Blueprint('api', __name__)
 
-def register_routes(rembg_service):
-    """Register all API routes with the service"""
+def register_routes(rembg_service, withoutbg_service):
+    """Register all API routes with the services"""
     
     @api_bp.route('/', methods=['GET'])
     def health_check():
@@ -20,6 +20,7 @@ def register_routes(rembg_service):
             "status": "online",
             "service": "REMBG API",
             "version": "2.0",
+            "available_providers": ["rembg", "withoutbg"],
             "available_models": list(rembg_service.sessions.keys()),
             "system_info": {
                 "total_memory_gb": memory_info.get('total_gb'),
@@ -35,7 +36,8 @@ def register_routes(rembg_service):
             },
             "usage": {
                 "single_image": "POST /remove-bg with 'image' file",
-                "model_selection": "Add 'model' parameter (u2net, silueta, human)",
+                "provider_selection": "Add 'provider' parameter (rembg, withoutbg) - default: rembg",
+                "model_selection": "Add 'model' parameter (u2net, silueta, human) - only for rembg",
                 "size_limit": "Add 'max_size' parameter (default: 2000px)",
                 "supported_formats": "JPG, PNG, WebP, TIFF"
             },
@@ -68,27 +70,41 @@ def register_routes(rembg_service):
     @api_bp.route('/models', methods=['GET'])
     def get_available_models():
         """Available models and descriptions"""
-        available_models = {}
-        for model_name in rembg_service.sessions.keys():
-            available_models[model_name] = rembg_service.model_descriptions.get(
-                model_name, "AI Model for Background-Removal"
-            )
+        provider = request.args.get('provider', 'rembg')
         
-        return jsonify({
-            "available_models": available_models,
-            "default": "u2net",
-            "recommendations": {
-                "general": "u2net",
-                "fast": "silueta", 
-                "people": "u2net_human_seg",
-                "high_quality": "isnet-general-use"
-            },
-            "model_info": {
-                "u2net": {"size": "176MB", "speed": "medium", "quality": "high"},
-                "silueta": {"size": "43MB", "speed": "fast", "quality": "good"},
-                "u2net_human_seg": {"size": "176MB", "speed": "medium", "quality": "excellent for humans"}
-            }
-        })
+        if provider == 'withoutbg':
+            return jsonify({
+                "provider": "withoutbg",
+                "available_models": ["snap"],
+                "default": "snap",
+                "note": "Withoutbg uses the Snap model (local processing)",
+                "model_info": {
+                    "snap": {"speed": "fast", "quality": "high", "description": "Open source background removal model"}
+                }
+            })
+        else:
+            available_models = {}
+            for model_name in rembg_service.sessions.keys():
+                available_models[model_name] = rembg_service.model_descriptions.get(
+                    model_name, "AI Model for Background-Removal"
+                )
+            
+            return jsonify({
+                "provider": "rembg",
+                "available_models": available_models,
+                "default": "u2net",
+                "recommendations": {
+                    "general": "u2net",
+                    "fast": "silueta", 
+                    "people": "u2net_human_seg",
+                    "high_quality": "isnet-general-use"
+                },
+                "model_info": {
+                    "u2net": {"size": "176MB", "speed": "medium", "quality": "high"},
+                    "silueta": {"size": "43MB", "speed": "fast", "quality": "good"},
+                    "u2net_human_seg": {"size": "176MB", "speed": "medium", "quality": "excellent for humans"}
+                }
+            })
     
     @api_bp.route('/remove-bg', methods=['POST'])
     def remove_background():
@@ -107,15 +123,22 @@ def register_routes(rembg_service):
                 return jsonify({'error': 'Empty file'}), 400
             
             # Read parameters
+            provider = request.form.get('provider', 'rembg')
             model = request.form.get('model', 'u2net')
             max_size = int(request.form.get('max_size', 2000))
+            
+            # Select service based on provider
+            if provider == 'withoutbg':
+                service = withoutbg_service
+            else:
+                service = rembg_service
             
             # File-Size Check based on available RAM
             file_size_mb = len(file.read()) / (1024 * 1024)
             file.seek(0)  # Reset file pointer
             
             available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            max_file_size = rembg_service._get_max_file_size(available_ram_gb)
+            max_file_size = service._get_max_file_size(available_ram_gb)
             
             if file_size_mb > max_file_size:
                 return jsonify({
@@ -123,10 +146,10 @@ def register_routes(rembg_service):
                     'limit': f'Maximum: {max_file_size}MB (based on {available_ram_gb:.1f}GB available RAM)'
                 }), 413
             
-            logger.info(f"📁 New request: {file.filename} ({file_size_mb:.1f}MB), Model: {model}, Max-Size: {max_size}")
+            logger.info(f"📁 New request: {file.filename} ({file_size_mb:.1f}MB), Provider: {provider}, Model: {model}, Max-Size: {max_size}")
             
             # Process image
-            result_image, processing_time, used_model = rembg_service.process_image(
+            result_image, processing_time, used_model = service.process_image(
                 file, model, max_size
             )
             
@@ -141,6 +164,7 @@ def register_routes(rembg_service):
             # Extended Headers
             response.headers['X-Processing-Time'] = f"{processing_time:.2f}s"
             response.headers['X-Model-Used'] = used_model
+            response.headers['X-Provider-Used'] = provider
             response.headers['X-Service'] = 'REMBG API v2.0'
             response.headers['X-File-Size-MB'] = f"{file_size_mb:.1f}"
             
@@ -163,9 +187,19 @@ def register_routes(rembg_service):
             if not files or len(files) == 0:
                 return jsonify({'error': 'No images found'}), 400
             
+            # Read parameters
+            provider = request.form.get('provider', 'rembg')
+            model = request.form.get('model', 'u2net')
+            
+            # Select service based on provider
+            if provider == 'withoutbg':
+                service = withoutbg_service
+            else:
+                service = rembg_service
+            
             # Dynamic batch limit based on available RAM
             available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            max_batch_size = rembg_service._get_max_batch_size(available_ram_gb)
+            max_batch_size = service._get_max_batch_size(available_ram_gb)
             
             if len(files) > max_batch_size:
                 return jsonify({
@@ -173,15 +207,14 @@ def register_routes(rembg_service):
                     'limit': f'Maximum: {max_batch_size} images (based on {available_ram_gb:.1f}GB available RAM)'
                 }), 400
             
-            model = request.form.get('model', 'u2net')
             results = []
             total_time = 0
             
-            logger.info(f"📦 Batch processing: {len(files)} images with {model}")
+            logger.info(f"📦 Batch processing: {len(files)} images with Provider: {provider}, Model: {model}")
             
             for i, file in enumerate(files):
                 try:
-                    result_image, proc_time, used_model = rembg_service.process_image(file, model)
+                    result_image, proc_time, used_model = service.process_image(file, model)
                     total_time += proc_time
                     
                     # As Base64 for JSON-Response
@@ -192,6 +225,7 @@ def register_routes(rembg_service):
                         'filename': file.filename,
                         'success': True,
                         'processing_time': f"{proc_time:.2f}s",
+                        'provider_used': provider,
                         'model_used': used_model,
                         'image_data': f"data:image/png;base64,{img_b64}"
                     })

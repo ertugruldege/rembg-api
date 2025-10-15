@@ -6,6 +6,7 @@ import psutil
 
 # Import services and routes
 from services.rembg_service import RembgAPIService
+from services.withoutbg_service import WithoutbgService
 from routes.api import api_bp, register_routes
 
 # Configure logging
@@ -19,11 +20,12 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
-# Initialize service
+# Initialize services
 rembg_service = RembgAPIService()
+withoutbg_service = WithoutbgService()
 
 # Register routes
-register_routes(rembg_service)
+register_routes(rembg_service, withoutbg_service)
 app.register_blueprint(api_bp)
 
 # Application configuration
