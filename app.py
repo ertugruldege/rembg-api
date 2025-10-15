@@ -2,7 +2,6 @@ from flask import Flask
 from flask_cors import CORS
 import os
 import logging
-import psutil
 
 # Import services and routes
 from services.rembg_service import RembgAPIService
@@ -34,9 +33,8 @@ if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_ENV') == 'development'
     
     # Startup information
-    memory_info = psutil.virtual_memory()
     logger.info(f"🚀 Starting REMBG API v2.0 on port {port}")
-    logger.info(f"💾 Available RAM: {memory_info.total / (1024**3):.1f}GB")
+    logger.info(f"⚡ Maximum quality mode enabled - No resolution limits")
     
     app.run(
         host='0.0.0.0', 

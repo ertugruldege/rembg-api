@@ -6,4 +6,3 @@ flask-cors
 gunicorn==21.2.0
 pillow>=10.0.0,<11.0.0
 onnxruntime>=1.15.0
-psutil

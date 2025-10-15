@@ -1,5 +1,4 @@
 from flask import Blueprint, request, send_file, jsonify
-import psutil
 import logging
 import base64
 
@@ -14,19 +13,12 @@ def register_routes(rembg_service, withoutbg_service):
     @api_bp.route('/', methods=['GET'])
     def health_check():
         """Health Check and API-Info"""
-        memory_info = rembg_service.get_memory_info()
-        
         return jsonify({
             "status": "online",
             "service": "REMBG API",
             "version": "2.0",
             "available_providers": ["rembg", "withoutbg"],
             "available_models": list(rembg_service.sessions.keys()),
-            "system_info": {
-                "total_memory_gb": memory_info.get('total_gb'),
-                "memory_usage_percent": memory_info.get('used_percent'),
-                "available_memory_gb": memory_info.get('available_gb')
-            },
             "endpoints": {
                 "remove_background": "/remove-bg",
                 "batch_process": "/batch",
@@ -42,28 +34,24 @@ def register_routes(rembg_service, withoutbg_service):
                 "supported_formats": "JPG, PNG, WebP, TIFF"
             },
             "limits": {
-                "max_image_size": f"{rembg_service._get_max_file_size(psutil.virtual_memory().available / (1024**3))}MB (dynamic)",
-                "batch_processing": f"{rembg_service._get_max_batch_size(psutil.virtual_memory().available / (1024**3))} images (dynamic)",
-                "max_resolution": "Dynamic based on RAM",
-                "available_ram_gb": round(psutil.virtual_memory().available / (1024**3), 1)
+                "max_image_size": "40MB",
+                "batch_processing": "unlimited"
             }
         })
     
     @api_bp.route('/system', methods=['GET'])
     def system_info():
-        """Detailed System Information for Debugging"""
-        memory_info = rembg_service.get_memory_info()
-        
+        """Detailed System Information"""
         return jsonify({
             "system": {
-                "memory": memory_info,
                 "loaded_models": list(rembg_service.sessions.keys()),
                 "model_count": len(rembg_service.sessions)
             },
-            "performance": {
-                "can_handle_large_images": memory_info.get('total_gb', 0) > 16,
-                "recommended_max_size": 2000 if memory_info.get('total_gb', 0) > 16 else 1500,
-                "batch_limit": 10 if memory_info.get('total_gb', 0) > 16 else 3
+            "capabilities": {
+                "max_file_size": "40MB",
+                "max_resolution": "unlimited",
+                "batch_processing": "unlimited",
+                "output_quality": "maximum"
             }
         })
     
@@ -133,17 +121,13 @@ def register_routes(rembg_service, withoutbg_service):
             else:
                 service = rembg_service
             
-            # File-Size Check based on available RAM
             file_size_mb = len(file.read()) / (1024 * 1024)
-            file.seek(0)  # Reset file pointer
+            file.seek(0)
             
-            available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            max_file_size = service._get_max_file_size(available_ram_gb)
-            
-            if file_size_mb > max_file_size:
+            if file_size_mb > 40:
                 return jsonify({
                     'error': f'File too large: {file_size_mb:.1f}MB',
-                    'limit': f'Maximum: {max_file_size}MB (based on {available_ram_gb:.1f}GB available RAM)'
+                    'limit': 'Maximum: 40MB'
                 }), 413
             
             logger.info(f"📁 New request: {file.filename} ({file_size_mb:.1f}MB), Provider: {provider}, Model: {model}, Max-Size: {max_size}")
@@ -196,16 +180,6 @@ def register_routes(rembg_service, withoutbg_service):
                 service = withoutbg_service
             else:
                 service = rembg_service
-            
-            # Dynamic batch limit based on available RAM
-            available_ram_gb = psutil.virtual_memory().available / (1024**3)
-            max_batch_size = service._get_max_batch_size(available_ram_gb)
-            
-            if len(files) > max_batch_size:
-                return jsonify({
-                    'error': f'Too many images: {len(files)}',
-                    'limit': f'Maximum: {max_batch_size} images (based on {available_ram_gb:.1f}GB available RAM)'
-                }), 400
             
             results = []
             total_time = 0

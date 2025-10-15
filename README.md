@@ -1,6 +1,6 @@
 # REMBG API
 
-A high-performance REST API for background removal with multiple providers. Remove backgrounds from images using REMBG or Withoutbg AI models.
+A high-quality REST API for background removal with multiple providers. Remove backgrounds from images at maximum quality using REMBG or Withoutbg AI models.
 
 ## 🚀 Quick Start
 
@@ -18,11 +18,12 @@ API will be available at `http://localhost:5000`
 
 - 🎯 **Multiple Provider Support**: Choose between REMBG and Withoutbg
 - 🤖 **Multiple AI Models**: 5 different AI model options
-- 📦 **Batch Processing**: Process multiple images simultaneously
-- 💾 **Dynamic RAM Optimization**: Automatic adjustment based on system resources
-- 🚀 **High Performance**: Fast processing and optimized memory usage
+- 📦 **Batch Processing**: Unlimited batch processing support
+- 💎 **Maximum Quality Output**: No compression, full quality preservation
+- 🚀 **High Performance**: Fast processing with optimized AI models
 - 📊 **Detailed Logging**: Comprehensive logging for every operation
 - 🔄 **Flexible Format Support**: JPG, PNG, WebP, TIFF
+- ⚡ **No Resolution Limits**: Process images at their original resolution
 
 ## 📡 API Endpoints
 
@@ -39,10 +40,9 @@ POST /remove-bg
 Content-Type: multipart/form-data
 
 Parameters:
-- image: Image file (required)
+- image: Image file (required, max 40MB)
 - provider: Service provider (optional, default: rembg) - Options: rembg, withoutbg
 - model: AI model (optional, default: u2net) - Only for rembg provider
-- max_size: Max image size (optional, default: 2000px)
 ```
 
 **Examples:**
@@ -65,7 +65,7 @@ POST /batch
 Content-Type: multipart/form-data
 
 Parameters:
-- images: Multiple image files (required)
+- images: Multiple image files (required, each max 40MB)
 - provider: Service provider (optional, default: rembg) - Options: rembg, withoutbg
 - model: AI model (optional, default: u2net) - Only for rembg provider
 ```
@@ -121,8 +121,8 @@ GET /system
 
 **Provider Features:**
 
-- **REMBG**: Multiple model options, wide range of use cases
-- **Withoutbg**: Fast processing, AI-powered edge detection, local processing
+- **REMBG**: Multiple model options, wide range of use cases, maximum quality output
+- **Withoutbg**: Fast processing, AI-powered edge detection, local processing, maximum quality output
 
 ## ⚙️ Configuration
 
@@ -142,6 +142,13 @@ cp env.example .env
 ### Supported Formats
 
 - JPG, PNG, WebP, TIFF
+
+### API Limits
+
+- **Maximum File Size**: 40MB per image
+- **Maximum Resolution**: Unlimited (processes at original resolution)
+- **Batch Processing**: Unlimited number of images
+- **Output Quality**: Maximum (no compression applied)
 
 ## 🔧 Development
 
